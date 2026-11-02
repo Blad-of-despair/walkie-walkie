@@ -360,6 +360,7 @@ const pttLabel = document.getElementById('pttLabel');
 const pttSub = document.getElementById('pttSub');
 const statusBar = document.getElementById('statusBar');
 const audioOverlay = document.getElementById('audioOverlay');
+const unlockBtn = document.getElementById('unlockAudio');
 const qrBtn = document.getElementById('qrBtn');
 const qrModal = document.getElementById('qrModal');
 const closeQr = document.getElementById('closeQr');
@@ -444,7 +445,9 @@ function connectWS() {
   };
 
   ws.onmessage = (e) => {
-    try { handleMsg(JSON.parse(e.data)); } catch {}
+    console.log('WS message:', e.data);
+    const msg = JSON.parse(e.data);
+    handleMsg(msg);
   };
 
   ws.onclose = (e) => {
@@ -768,6 +771,7 @@ connectBtn.onclick = () => {
   const nick = nickInput.value.trim();
   if (!nick) { nickInput.focus(); return; }
   myNickname = nick;
+  console.log('Connecting with nickname:', myNickname);
   connectBtn.disabled = true;
   connectBtn.textContent = 'Connecting...';
   connectWS();
