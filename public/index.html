@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>WiFi Talkie</title>
+<style>
+:root {
+  --bg: #0B0D1A;
+  --bg-alt: #0F1124;
+  --card: #141628;
+  --card-hover: #1A1C36;
+  --card-sel: #1D2042;
+  --card-border: rgba(59,130,246,0.15);
+  --primary: #3B82F6;
+  --primary-dark: #2563EB;
+  --danger: #EF4444;
+  --danger-glow: rgba(239,68,68,0.35);
+  --success: #10B981;
+  --success-glow: rgba(16,185,129,0.25);
+  --warning: #F59E0B;
+  --text: #F1F5F9;
+  --text-sec: #94A3B8;
+  --text-muted: #475569;
+  --radius: 14px;
+  --radius-sm: 10px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg); color: var(--text);
+  display: flex; justify-content: center; align-items: center;
+}
+
+/* ===== APP CONTAINER ===== */
+#app {
+  width: 100%; max-width: 440px; height: 100dvh; max-height: 820px;
+  display: flex; flex-direction: column;
+  position: relative; overflow: hidden;
+}
+
+/* ===== SCREENS ===== */
+.screen {
+  display: none; flex-direction: column;
+  position: absolute; inset: 0;
+}
+.screen.active { display: flex; }
+
+/* ===== LOGIN SCREEN ===== */
+#loginScreen {
+  justify-content: center; align-items: center;
+  padding: 32px 28px; gap: 24px;
+  background: radial-gradient(ellipse at 50% 30%, #141628 0%, var(--bg) 70%);
+}
+.login-icon {
+  font-size: 56px; width: 100px; height: 100px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card); border-radius: 28px;
+  box-shadow: 0 8px 40px rgba(59,130,246,0.12);
+}
+.login-title { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+.login-sub { color: var(--text-sec); font-size: 15px; text-align: center; line-height: 1.5; }
+
+#loginForm { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+#loginForm input {
+  width: 100%; padding: 16px 18px; border-radius: var(--radius);
+  background: var(--card); border: 1.5px solid transparent;
+  color: var(--text); font-size: 16px; outline: none; transition: border 0.2s;
+}
+#loginForm input:focus { border-color: var(--primary); }
+#loginForm input::placeholder { color: var(--text-muted); }
+
+#connectBtn {
+  width: 100%; padding: 16px; border-radius: var(--radius);
+  background: var(--primary); color: #fff; font-size: 16px; font-weight: 600;
+  border: none; cursor: pointer; transition: opacity 0.15s;
+}
+#connectBtn:active { opacity: 0.8; }
+#connectBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== MAIN SCREEN ===== */
+#mainScreen {
+  background: var(--bg);
+}
+
+/* Header */
+.header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 20px; background: var(--bg-alt); border-bottom: 1px solid rgba(255,255,255,0.04);
+  flex-shrink: 0;
+}
+.header-left { display: flex; align-items: center; gap: 10px; }
+.app-name { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+.conn-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--success);
+  box-shadow: 0 0 8px var(--success-glow); animation: pulse-dot 2s infinite;
+}
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+.header-right { display: flex; align-items: center; gap: 10px; }
+.user-badge {
+  padding: 4px 14px; border-radius: 20px; background: var(--card);
+  font-size: 13px; color: var(--text-sec); font-weight: 500;
+  max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#disconnectBtn {
+  padding: 6px 14px; border-radius: 8px; background: transparent;
+  border: 1px solid rgba(255,255,255,0.08); color: var(--text-sec);
+  font-size: 12px; cursor: pointer; transition: all 0.15s;
+}
+#disconnectBtn:active { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
+
+/* User List */
+.user-list-section {
+  flex: 1; overflow-y: auto; padding: 16px 20px 8px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.user-list-section::-webkit-scrollbar { width: 3px; }
+.user-list-section::-webkit-scrollbar-thumb { background: var(--card); border-radius: 10px; }
+
+.section-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0 2px 10px; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px;
+}
+#userList { display: flex; flex-direction: column; gap: 6px; }
+
+.user-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px; border-radius: var(--radius-sm);
+  background: var(--card); border: 1.5px solid transparent;
+  cursor: pointer; transition: all 0.15s; position: relative;
+}
+.user-card:active { background: var(--card-hover); }
+.user-card.selected { background: var(--card-sel); border-color: var(--card-border); }
+.user-card.talking { border-color: rgba(239,68,68,0.25); }
+
+.avatar {
+  width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 18px; color: #fff;
+  background: linear-gradient(135deg, var(--primary), #6366F1);
+}
+.user-card .name { font-size: 15px; font-weight: 500; flex: 1; }
+.user-card .online-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--success); flex-shrink: 0;
+}
+.user-card .talking-badge {
+  display: none; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 10px; background: var(--danger);
+  color: #fff; letter-spacing: 0.5px; flex-shrink: 0;
+  animation: pulse-badge 1.2s infinite;
+}
+@keyframes pulse-badge { 0%,100%{opacity:1} 50%{opacity:0.6} }
+.user-card.talking .talking-badge { display: inline; }
+.user-card .receiving-badge {
+  display: none; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 10px; background: var(--success);
+  color: #fff; letter-spacing: 0.5px; flex-shrink: 0;
+  animation: pulse-badge 1.2s infinite;
+}
+.user-card .receiving-badge.show { display: inline; }
+
+.empty-msg {
+  text-align: center; color: var(--text-muted); padding: 40px 0; font-size: 14px; line-height: 1.6;
+}
+.empty-msg span { display: block; font-size: 32px; margin-bottom: 12px; }
+
+/* Status bar */
+#statusBar {
+  flex-shrink: 0; text-align: center; padding: 10px 20px 6px;
+  font-size: 13px; color: var(--text-sec); min-height: 36px;
+  transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+#statusBar.idle { color: var(--text-muted); }
+#statusBar.talking { color: var(--danger); font-weight: 600; }
+#statusBar.receiving { color: var(--success); font-weight: 600; }
+#statusBar .pulse {
+  width: 6px; height: 6px; border-radius: 50%; display: inline-block;
+  animation: pulse-dot 0.8s infinite;
+}
+#statusBar.talking .pulse { background: var(--danger); box-shadow: 0 0 8px var(--danger-glow); }
+#statusBar.receiving .pulse { background: var(--success); box-shadow: 0 0 8px var(--success-glow); }
+
+/* PTT area */
+.ptt-area {
+  flex-shrink: 0; padding: 6px 20px 24px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+#pttBtn {
+  width: 100%; padding: 20px; border-radius: 18px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;
+  border: none; cursor: pointer; user-select: none; touch-action: none;
+  transition: all 0.12s; position: relative; overflow: hidden;
+  box-shadow: 0 4px 24px rgba(59,130,246,0.2);
+}
+#pttBtn:disabled {
+  opacity: 0.3; cursor: not-allowed; box-shadow: none;
+  background: var(--card);
+}
+#pttBtn.active {
+  background: linear-gradient(135deg, var(--danger), #DC2626);
+  box-shadow: 0 4px 32px var(--danger-glow);
+  transform: scale(0.97);
+}
+#pttBtn .ptt-ring {
+  position: absolute; inset: -4px; border-radius: 20px;
+  border: 3px solid transparent; transition: all 0.2s; pointer-events: none;
+}
+#pttBtn.active .ptt-ring {
+  border-color: var(--danger-glow);
+  animation: ptt-ripple 1.2s ease-out infinite;
+}
+@keyframes ptt-ripple {
+  0% { inset: -4px; border-color: var(--danger-glow); }
+  100% { inset: -14px; border-color: transparent; }
+}
+#pttBtn .ptt-icon { font-size: 24px; margin-right: 8px; }
+#pttBtn .ptt-sub {
+  display: block; font-size: 11px; font-weight: 500; opacity: 0.7; margin-top: 2px;
+}
+#pttBtn.receiving-mode {
+  background: linear-gradient(135deg, #065F46, #047857);
+  box-shadow: 0 4px 24px var(--success-glow);
+}
+
+/* ===== AUDIO OVERLAY ===== */
+#audioOverlay {
+  display: none; position: fixed; inset: 0; z-index: 999;
+  background: rgba(11,13,26,0.97); color: var(--text);
+  justify-content: center; align-items: center; flex-direction: column;
+  gap: 20px; padding: 28px; backdrop-filter: blur(20px);
+}
+#audioOverlay .icon { font-size: 52px; margin-bottom: 4px; }
+#audioOverlay h2 { font-size: 20px; font-weight: 600; }
+#audioOverlay p { color: var(--text-sec); font-size: 14px; }
+#unlockAudio {
+  padding: 16px 48px; border-radius: var(--radius);
+  background: var(--primary); color: #fff; font-size: 16px; font-weight: 600;
+  border: none; cursor: pointer;
+}
+
+/* ===== TOAST ===== */
+#toast {
+  position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+  padding: 10px 20px; border-radius: 10px; background: var(--danger);
+  color: #fff; font-size: 13px; font-weight: 500;
+  opacity: 0; transition: opacity 0.25s; pointer-events: none; z-index: 100;
+  white-space: nowrap;
+}
+#toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- ===== LOGIN ===== -->
+  <div id="loginScreen" class="screen active">
+    <div class="login-icon">📡</div>
+    <div class="login-title">WiFi Talkie</div>
+    <div class="login-sub">Push-to-talk over your local network</div>
+    <div id="loginForm">
+      <input id="nicknameInput" placeholder="Enter your nickname" maxlength="20" autocomplete="off"/>
+      <button id="connectBtn">Join Channel</button>
+    </div>
+  </div>
+
+  <!-- ===== MAIN ===== -->
+  <div id="mainScreen" class="screen">
+    <div class="header">
+      <div class="header-left">
+        <span class="app-name">WiFi Talkie</span>
+        <span class="conn-dot" title="Connected"></span>
+      </div>
+      <div class="header-right">
+        <span class="user-badge" id="myBadge"></span>
+        <button id="disconnectBtn">Leave</button>
+      </div>
+    </div>
+
+    <div class="user-list-section">
+      <div class="section-header">
+        <span>Online</span>
+        <span id="userCount">0</span>
+      </div>
+      <div id="userList">
+        <div class="empty-msg"><span>📡</span>No one else is online</div>
+      </div>
+    </div>
+
+    <div id="statusBar" class="idle">Select someone to talk to</div>
+
+    <div class="ptt-area">
+      <button id="pttBtn" disabled>
+        <span class="ptt-ring"></span>
+        <span><span class="ptt-icon">🎙️</span><span id="pttLabel">Hold to Talk</span></span>
+        <span class="ptt-sub" id="pttSub">Tap a user first</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== AUDIO OVERLAY ===== -->
+  <div id="audioOverlay">
+    <div class="icon">🔊</div>
+    <h2>Enable Audio</h2>
+    <p>Tap below to enable audio playback</p>
+    <button id="unlockAudio">Enable Audio</button>
+  </div>
+
+  <!-- ===== TOAST ===== -->
+  <div id="toast"></div>
+</div>
+
+<script>
+// ========================= CONFIG =========================
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ],
+};
+const RECONNECT_DELAY = 2000;
+
+// ========================= STATE =========================
+let ws = null;
+let myId = null;
+let myNickname = '';
+let selectedUser = null;
+let localStream = null;
+let peerConnections = new Map();
+let isPTT = false;
+let audioUnlocked = false;
+let talkingUsers = new Set();
+let receivingFrom = null;
+let users = new Map();
+
+// ========================= DOM =========================
+const loginScreen = document.getElementById('loginScreen');
+const mainScreen = document.getElementById('mainScreen');
+const nickInput = document.getElementById('nicknameInput');
+const connectBtn = document.getElementById('connectBtn');
+const disconnectBtn = document.getElementById('disconnectBtn');
+const myBadge = document.getElementById('myBadge');
+const userListEl = document.getElementById('userList');
+const userCountEl = document.getElementById('userCount');
+const pttBtn = document.getElementById('pttBtn');
+const pttLabel = document.getElementById('pttLabel');
+const pttSub = document.getElementById('pttSub');
+const statusBar = document.getElementById('statusBar');
+const audioOverlay = document.getElementById('audioOverlay');
+const unlockBtn = document.getElementById('unlockAudio');
+const toastEl = document.getElementById('toast');
+
+// ========================= PERSIST NICKNAME =========================
+try {
+  const saved = localStorage.getItem('wt_nickname');
+  if (saved) nickInput.value = saved;
+} catch {}
+
+// ========================= TOAST =========================
+let toastTimer;
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2500);
+}
+
+// ========================= AUDIO UNLOCK =========================
+unlockBtn.addEventListener('click', () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    ctx.resume();
+  } catch {}
+  audioUnlocked = true;
+  audioOverlay.style.display = 'none';
+}, { once: true });
+
+// ========================= SCREEN SWITCH =========================
+function showScreen(screen) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  screen.classList.add('active');
+}
+
+// ========================= WEBSOCKET =========================
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(proto + '//' + location.host);
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type: 'register', nickname: myNickname }));
+  };
+
+  ws.onmessage = (e) => {
+    try { handleMsg(JSON.parse(e.data)); } catch {}
+  };
+
+  ws.onclose = () => {
+    cleanupAll();
+    setTimeout(connectWS, RECONNECT_DELAY);
+  };
+
+  ws.onerror = () => {};
+}
+
+function sendTo(target, msg) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ ...msg, target }));
+  }
+}
+
+function sendToServer(msg) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(msg));
+  }
+}
+
+// ========================= MESSAGE HANDLER =========================
+function handleMsg(msg) {
+  switch (msg.type) {
+    case 'registered':
+      myId = msg.id;
+      try { localStorage.setItem('wt_nickname', myNickname); } catch {}
+      myBadge.textContent = myNickname;
+      showScreen(mainScreen);
+      setIdleStatus('Select someone to talk to');
+      break;
+
+    case 'userlist':
+      renderUsers(msg.users);
+      break;
+
+    case 'call-offer':
+      handleOffer(msg);
+      break;
+    case 'call-answer':
+      handleAnswer(msg);
+      break;
+    case 'ice-candidate':
+      handleICE(msg);
+      break;
+
+    case 'talking-start':
+      talkingUsers.add(msg.from);
+      users.set(msg.from, { id: msg.from, nickname: msg.fromNickname });
+      updateUserTalkingUI();
+      if (msg.from === (selectedUser && selectedUser.id)) {
+        setReceivingStatus('🔊 ' + msg.fromNickname + ' is talking...');
+      } else if (msg.target === myId) {
+        setReceivingStatus('🔊 ' + msg.fromNickname + ' is talking to you');
+      } else {
+        setReceivingStatus(msg.fromNickname + ' is talking');
+      }
+      if (msg.target === myId) {
+        receivingFrom = msg.from;
+      }
+      break;
+
+    case 'talking-stop':
+      talkingUsers.delete(msg.from);
+      updateUserTalkingUI();
+      if (receivingFrom === msg.from) {
+        receivingFrom = null;
+      }
+      if (talkingUsers.size === 0) {
+        setIdleStatus(selectedUser ? 'Target: ' + selectedUser.nickname + ' — Hold to talk' : 'Select someone to talk to');
+      }
+      break;
+
+    case 'error':
+      showToast(msg.message);
+      break;
+  }
+}
+
+// ========================= USER LIST =========================
+function renderUsers(list) {
+  users.clear();
+  const others = list.filter(u => u.id !== myId);
+  for (const u of others) users.set(u.id, u);
+
+  userCountEl.textContent = others.length;
+
+  if (others.length === 0) {
+    userListEl.innerHTML = '<div class="empty-msg"><span>📡</span>No one else is online</div>';
+    pttBtn.disabled = true;
+    selectedUser = null;
+    setIdleStatus('Select someone to talk to');
+    return;
+  }
+
+  let html = '';
+  for (const u of others) {
+    const sel = selectedUser && selectedUser.id === u.id;
+    const talk = talkingUsers.has(u.id);
+    html += '<div class="user-card' +
+      (sel ? ' selected' : '') +
+      (talk ? ' talking' : '') +
+      '" data-id="' + escapeAttr(u.id) + '" data-name="' + escapeAttr(u.nickname) + '">';
+    html += '<div class="avatar">' + u.nickname.charAt(0).toUpperCase() + '</div>';
+    html += '<div class="name">' + escapeHtml(u.nickname) + '</div>';
+    html += '<span class="talking-badge">TALKING</span>';
+    html += '<span class="online-dot"></span>';
+    html += '</div>';
+  }
+  userListEl.innerHTML = html;
+
+  userListEl.querySelectorAll('.user-card').forEach(el => {
+    el.addEventListener('click', () => {
+      selectUser({ id: el.dataset.id, nickname: el.dataset.name });
+    });
+    if (selectedUser && el.dataset.id === selectedUser.id) {
+      el.classList.add('selected');
+    }
+  });
+}
+
+function updateUserTalkingUI() {
+  userListEl.querySelectorAll('.user-card').forEach(el => {
+    const id = el.dataset.id;
+    el.classList.toggle('talking', talkingUsers.has(id));
+  });
+}
+
+function selectUser(user) {
+  if (selectedUser && selectedUser.id === user.id) return;
+  selectedUser = user;
+  userListEl.querySelectorAll('.user-card').forEach(c => c.classList.remove('selected'));
+  const card = userListEl.querySelector('[data-id="' + user.id + '"]');
+  if (card) card.classList.add('selected');
+  pttBtn.disabled = false;
+  pttSub.textContent = 'Hold to talk to ' + user.nickname;
+  setIdleStatus('Target: ' + user.nickname + ' — Hold to talk');
+}
+
+// ========================= PTT =========================
+async function startPTT() {
+  if (isPTT || !selectedUser) return;
+  isPTT = true;
+
+  if (!audioUnlocked) {
+    audioOverlay.style.display = 'flex';
+    isPTT = false;
+    return;
+  }
+
+  pttBtn.classList.add('active');
+  pttLabel.textContent = 'Release';
+  pttSub.textContent = 'Talking to ' + selectedUser.nickname;
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    sendToServer({ type: 'talking-start', target: selectedUser.id });
+
+    const peerId = selectedUser.id;
+    cleanupConnection(peerId);
+
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+    peerConnections.set(peerId, pc);
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) sendTo(peerId, { type: 'ice-candidate', candidate: e.candidate.toJSON() });
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+        cleanupConnection(peerId);
+      }
+    };
+
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    sendTo(peerId, { type: 'call-offer', sdp: pc.localDescription });
+
+    setTalkingStatus('🔴 Talking to ' + selectedUser.nickname + '...');
+
+    // Vibrate on mobile when PTT starts
+    try { navigator.vibrate && navigator.vibrate(30); } catch {}
+
+  } catch (err) {
+    showToast('Mic error: ' + err.message);
+    stopPTT();
+  }
+}
+
+function stopPTT() {
+  if (!isPTT) return;
+  isPTT = false;
+
+  sendToServer({ type: 'talking-stop' });
+
+  pttBtn.classList.remove('active');
+  pttLabel.textContent = 'Hold to Talk';
+  pttSub.textContent = selectedUser ? 'Hold to talk to ' + selectedUser.nickname : 'Tap a user first';
+
+  for (const [id, pc] of peerConnections) {
+    pc.close();
+  }
+  peerConnections.clear();
+
+  if (localStream) {
+    localStream.getTracks().forEach(t => t.stop());
+    localStream = null;
+  }
+
+  setIdleStatus(selectedUser ? 'Target: ' + selectedUser.nickname + ' — Hold to talk' : 'Select someone to talk to');
+}
+
+// ========================= WEBRTC RECEIVER =========================
+async function handleOffer(msg) {
+  try {
+    cleanupConnection(msg.from);
+    // If we're in a call with the sender and they're the selected user, keep state
+
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+    peerConnections.set(msg.from, pc);
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) sendTo(msg.from, { type: 'ice-candidate', candidate: e.candidate.toJSON() });
+    };
+
+    pc.ontrack = (e) => {
+      const audio = new Audio();
+      audio.srcObject = e.streams[0];
+      audio.play().catch(() => {
+        if (!audioUnlocked) audioOverlay.style.display = 'flex';
+      });
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+        cleanupConnection(msg.from);
+      }
+    };
+
+    await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    sendTo(msg.from, { type: 'call-answer', sdp: pc.localDescription });
+
+  } catch (err) {
+    showToast('Connection error');
+  }
+}
+
+async function handleAnswer(msg) {
+  const pc = peerConnections.get(msg.from);
+  if (pc && pc.currentRemoteDescription === null) {
+    try { await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp)); } catch {}
+  }
+}
+
+async function handleICE(msg) {
+  const pc = peerConnections.get(msg.from);
+  if (pc) {
+    try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
+  }
+}
+
+// ========================= STATUS =========================
+function setIdleStatus(text) {
+  statusBar.textContent = text;
+  statusBar.className = 'idle';
+  pttBtn.classList.remove('receiving-mode');
+}
+
+function setTalkingStatus(text) {
+  statusBar.innerHTML = '<span class="pulse"></span> ' + text;
+  statusBar.className = 'talking';
+  pttBtn.classList.remove('receiving-mode');
+}
+
+function setReceivingStatus(text) {
+  statusBar.innerHTML = '<span class="pulse"></span> ' + text;
+  statusBar.className = 'receiving';
+  if (!isPTT) {
+    pttBtn.classList.add('receiving-mode');
+    pttLabel.textContent = 'Listening';
+    pttSub.textContent = 'Release to stop receiving';
+  }
+}
+
+// ========================= CLEANUP =========================
+function cleanupConnection(peerId) {
+  const pc = peerConnections.get(peerId);
+  if (pc) { pc.close(); peerConnections.delete(peerId); }
+}
+
+function cleanupAll() {
+  for (const [id, pc] of peerConnections) pc.close();
+  peerConnections.clear();
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  talkingUsers.clear();
+  receivingFrom = null;
+  users.clear();
+}
+
+// ========================= CONNECT / DISCONNECT =========================
+connectBtn.onclick = () => {
+  const nick = nickInput.value.trim();
+  if (!nick) { nickInput.focus(); return; }
+  myNickname = nick;
+  connectBtn.disabled = true;
+  connectBtn.textContent = 'Connecting...';
+  connectWS();
+};
+
+disconnectBtn.onclick = () => {
+  cleanupAll();
+  if (ws) { ws.onclose = null; ws.close(); ws = null; }
+  isPTT = false;
+  pttBtn.classList.remove('active', 'receiving-mode');
+  pttBtn.disabled = true;
+  pttLabel.textContent = 'Hold to Talk';
+  pttSub.textContent = 'Tap a user first';
+  selectedUser = null;
+  showScreen(loginScreen);
+  connectBtn.disabled = false;
+  connectBtn.textContent = 'Join Channel';
+  setIdleStatus('');
+};
+
+nickInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') connectBtn.click();
+});
+
+// ========================= PTT EVENTS =========================
+pttBtn.addEventListener('mousedown', (e) => { e.preventDefault(); startPTT(); });
+pttBtn.addEventListener('mouseup', stopPTT);
+pttBtn.addEventListener('mouseleave', stopPTT);
+pttBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPTT(); }, { passive: false });
+pttBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopPTT(); }, { passive: false });
+pttBtn.addEventListener('touchcancel', stopPTT);
+
+// ========================= HELPERS =========================
+function escapeHtml(s) {
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
+function escapeAttr(s) {
+  return s.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+</script>
+</body>
+</html>
