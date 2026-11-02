@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>WiFi Talkie</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 :root {
   --bg: #0B0D1A;
@@ -275,6 +276,7 @@ body {
         <span class="conn-dot" title="Connected"></span>
       </div>
       <div class="header-right">
+        <button id="qrBtn" title="Show QR Code" style="background:var(--card);border:1px solid rgba(255,255,255,0.08);color:var(--text);padding:6px 10px;border-radius:8px;cursor:pointer;font-size:13px;">📱</button>
         <span class="user-badge" id="myBadge"></span>
         <button id="disconnectBtn">Leave</button>
       </div>
@@ -307,6 +309,14 @@ body {
     <h2>Enable Audio</h2>
     <p>Tap below to enable audio playback</p>
     <button id="unlockAudio">Enable Audio</button>
+  </div>
+
+  <!-- ===== QR MODAL ===== -->
+  <div id="qrModal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(11,13,26,0.95);justify-content:center;align-items:center;flex-direction:column;gap:16px;padding:28px;backdrop-filter:blur(20px);">
+    <div style="font-size:18px;font-weight:700;">Scan to Join Channel</div>
+    <div id="qrcode" style="background:#fff;padding:16px;border-radius:12px;"></div>
+    <div id="qrUrl" style="color:var(--text-sec);font-size:13px;word-break:break-all;text-align:center;"></div>
+    <button id="closeQr" style="padding:12px 32px;border-radius:var(--radius);background:var(--primary);color:#fff;font-weight:600;border:none;cursor:pointer;">Close</button>
   </div>
 
   <!-- ===== TOAST ===== -->
@@ -350,8 +360,31 @@ const pttLabel = document.getElementById('pttLabel');
 const pttSub = document.getElementById('pttSub');
 const statusBar = document.getElementById('statusBar');
 const audioOverlay = document.getElementById('audioOverlay');
-const unlockBtn = document.getElementById('unlockAudio');
-const toastEl = document.getElementById('toast');
+const qrBtn = document.getElementById('qrBtn');
+const qrModal = document.getElementById('qrModal');
+const closeQr = document.getElementById('closeQr');
+const qrContainer = document.getElementById('qrcode');
+const qrUrlEl = document.getElementById('qrUrl');
+
+let qrInitialized = false;
+qrBtn.onclick = () => {
+  const url = window.location.href;
+  qrUrlEl.textContent = url;
+  qrModal.style.display = 'flex';
+  if (!qrInitialized) {
+    qrContainer.innerHTML = '';
+    new QRCode(qrContainer, {
+      text: url,
+      width: 180,
+      height: 180,
+      colorDark: '#0B0D1A',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    qrInitialized = true;
+  }
+};
+closeQr.onclick = () => { qrModal.style.display = 'none'; };
 
 // ========================= PERSIST NICKNAME =========================
 try {
@@ -369,14 +402,31 @@ function showToast(msg) {
 }
 
 // ========================= AUDIO UNLOCK =========================
-unlockBtn.addEventListener('click', () => {
+let audioCtx = null;
+
+function ensureAudioContext() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    ctx.resume();
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
   } catch {}
+}
+
+unlockBtn.addEventListener('click', () => {
+  ensureAudioContext();
   audioUnlocked = true;
   audioOverlay.style.display = 'none';
-}, { once: true });
+});
+
+// Re-check audio context when tab becomes visible again (iOS Safari suspends it)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && audioUnlocked) {
+    ensureAudioContext();
+  }
+});
 
 // ========================= SCREEN SWITCH =========================
 function showScreen(screen) {
@@ -397,12 +447,17 @@ function connectWS() {
     try { handleMsg(JSON.parse(e.data)); } catch {}
   };
 
-  ws.onclose = () => {
+  ws.onclose = (e) => {
     cleanupAll();
+    if (mainScreen.classList.contains('active')) {
+      showToast('Connection lost — reconnecting...');
+    }
     setTimeout(connectWS, RECONNECT_DELAY);
   };
 
-  ws.onerror = () => {};
+  ws.onerror = () => {
+    showToast('Cannot reach server — is it running on this network?');
+  };
 }
 
 function sendTo(target, msg) {
@@ -491,6 +546,13 @@ function renderUsers(list) {
     return;
   }
 
+  // Clear stale selection if selected user left
+  if (selectedUser && !others.some(u => u.id === selectedUser.id)) {
+    selectedUser = null;
+    pttBtn.disabled = true;
+    setIdleStatus('Select someone to talk to');
+  }
+
   let html = '';
   for (const u of others) {
     const sel = selectedUser && selectedUser.id === u.id;
@@ -531,7 +593,7 @@ function selectUser(user) {
   const card = userListEl.querySelector('[data-id="' + user.id + '"]');
   if (card) card.classList.add('selected');
   pttBtn.disabled = false;
-  pttSub.textContent = 'Hold to talk to ' + user.nickname;
+  pttSub.textContent = 'Hold button or press Space to talk to ' + user.nickname;
   setIdleStatus('Target: ' + user.nickname + ' — Hold to talk');
 }
 
@@ -625,6 +687,7 @@ async function handleOffer(msg) {
     };
 
     pc.ontrack = (e) => {
+      ensureAudioContext();
       const audio = new Audio();
       audio.srcObject = e.streams[0];
       audio.play().catch(() => {
@@ -680,8 +743,8 @@ function setReceivingStatus(text) {
   statusBar.className = 'receiving';
   if (!isPTT) {
     pttBtn.classList.add('receiving-mode');
-    pttLabel.textContent = 'Listening';
-    pttSub.textContent = 'Release to stop receiving';
+    pttLabel.textContent = '🔊 Listening';
+    pttSub.textContent = 'You can still hold to talk';
   }
 }
 
@@ -736,6 +799,24 @@ pttBtn.addEventListener('mouseleave', stopPTT);
 pttBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPTT(); }, { passive: false });
 pttBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopPTT(); }, { passive: false });
 pttBtn.addEventListener('touchcancel', stopPTT);
+
+// Keyboard PTT — hold Space to talk (only on main screen, not in input fields)
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !e.repeat && mainScreen.classList.contains('active')) {
+    const tag = document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    e.preventDefault();
+    startPTT();
+  }
+});
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'Space' && mainScreen.classList.contains('active')) {
+    const tag = document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    e.preventDefault();
+    stopPTT();
+  }
+});
 
 // ========================= HELPERS =========================
 function escapeHtml(s) {

@@ -50,6 +50,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final port = int.tryParse(_portController.text.trim()) ?? 3000;
 
+    if (!_isHost) {
+      final ip = _ipController.text.trim();
+      if (ip.isEmpty) return;
+    }
+
+    setState(() => _connecting = true);
+
     if (_isHost) {
       Navigator.pushReplacementNamed(context, '/main', arguments: {
         'mode': 'host',
@@ -58,7 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     } else {
       final ip = _ipController.text.trim();
-      if (ip.isEmpty) return;
       Navigator.pushReplacementNamed(context, '/main', arguments: {
         'mode': 'join',
         'nickname': nickname,

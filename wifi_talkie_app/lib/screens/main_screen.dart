@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:network_info_plus/network_info_plus.dart';
 import '../models/message.dart';
 import '../models/user.dart';
 import '../services/signaling_client.dart';
@@ -39,6 +41,7 @@ class _MainScreenState extends State<MainScreen> {
   String _statusText = 'Connecting...';
   bool _connected = false;
   String? _receivingFromId;
+  String? _hostInfo;
 
   StreamSubscription? _messageSub;
   StreamSubscription? _connectionSub;
@@ -61,19 +64,28 @@ class _MainScreenState extends State<MainScreen> {
       _server = SignalingServer();
       final started = await _server!.start(widget.port);
       if (!started && mounted) {
-        _setStatus('Failed to start server on port ${widget.port}');
+        _setStatus('Port ${widget.port} is in use — try a different port');
+        _showToast('Failed to start server on port ${widget.port}');
         return;
       }
+      // Show host IP so others can join
+      try {
+        final ip = await NetworkInfo().getWifiIP();
+        if (mounted && ip != null) {
+          setState(() => _hostInfo = '$ip:${widget.port}');
+        }
+      } catch (_) {}
       // Connect to self
       final ok = await _client.connect('127.0.0.1', widget.port);
       if (!ok && mounted) {
-        _setStatus('Failed to connect');
+        _setStatus('Internal connection failed — restart the app');
         return;
       }
     } else {
       final ok = await _client.connect(widget.host!, widget.port);
       if (!ok && mounted) {
-        _setStatus('Connection failed');
+        _setStatus('Cannot reach ${widget.host}:${widget.port}');
+        _showToast('Check the IP, port, and that both devices are on the same Wi-Fi');
         return;
       }
     }
@@ -186,6 +198,11 @@ class _MainScreenState extends State<MainScreen> {
         final fromNick = msg['fromNickname'] as String? ?? 'Someone';
         final targetId = msg['target'] as String?;
         _talkingUsers.add(fromId);
+
+        // Vibrate receiver slightly when someone talks to them
+        if (targetId == _myId || fromId == _selectedUser?.id) {
+          try { HapticFeedback.lightImpact(); } catch {}
+        }
 
         setState(() {
           for (final u in _users) {
@@ -413,6 +430,22 @@ class _MainScreenState extends State<MainScreen> {
                 ],
               ),
             ),
+
+            // Host info banner
+            if (_hostInfo != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                color: const Color(0xFF141628),
+                child: Text(
+                  'Others can join at  $_hostInfo',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF94A3B8),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
 
             // User list
             Expanded(

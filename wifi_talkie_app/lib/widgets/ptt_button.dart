@@ -151,7 +151,11 @@ class _PttButtonState extends State<PttButton>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      widget.isActive ? '🔴' : '🎙️',
+                      widget.isActive
+                          ? '🔴'
+                          : widget.isReceiving
+                              ? '🔊'
+                              : '🎙️',
                       style: const TextStyle(fontSize: 24),
                     ),
                     const SizedBox(width: 8),
@@ -159,7 +163,7 @@ class _PttButtonState extends State<PttButton>
                       widget.isActive
                           ? 'Release'
                           : widget.isReceiving
-                              ? 'Listening'
+                              ? '🔊 Listening'
                               : 'Hold to Talk',
                       style: TextStyle(
                         fontSize: 20,
@@ -175,7 +179,7 @@ class _PttButtonState extends State<PttButton>
                   widget.isActive
                       ? 'Talking to ${widget.targetName}'
                       : widget.isReceiving
-                          ? 'Release to stop receiving'
+                          ? 'You can still hold to talk'
                           : widget.targetName.isNotEmpty
                               ? 'Hold to talk to ${widget.targetName}'
                               : 'Select a user first',

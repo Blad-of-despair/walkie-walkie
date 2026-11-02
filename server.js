@@ -94,7 +94,7 @@ function forwardTo(senderWs, targetId, msg) {
   }
   const sender = clients.get(senderWs);
   if (sender) {
-    senderWs.send(JSON.stringify({ type: 'error', message: 'Target user unavailable' }));
+    senderWs.send(JSON.stringify({ type: 'error', message: 'User disconnected or left the channel' }));
   }
 }
 
